@@ -1,0 +1,42 @@
+{
+  "name": "aws-cicd-demo-build",
+  "description": "Build project for aws-cicd-demo",
+  "source": {
+    "type": "GITHUB",
+    "location": "https://github.com/Sotm-IT/aws-cicd-demo.git",
+    "gitCloneDepth": 1,
+    "buildspec": "buildspec.yml",
+    "gitSubmodulesConfig": {
+      "fetchSubmodules": false
+    }
+  },
+  "artifacts": {
+    "type": "S3",
+    "location": "aws-cicd-demo-artifacts",
+    "name": "aws-cicd-demo-build",
+    "packaging": "ZIP",
+    "overrideArtifactName": true
+  },
+  "environment": {
+    "type": "LINUX_CONTAINER",
+    "image": "aws/codebuild/amazonlinux2-x86_64-standard:3.0",
+    "computeType": "BUILD_GENERAL1_SMALL",
+    "environmentVariables": [],
+    "privilegedMode": false
+  },
+  "serviceRole": "arn:aws:iam::<ACCOUNT_ID>:role/codebuild-aws-cicd-demo-service-role",
+  "encryptionKey": "arn:aws:kms:ap-northeast-1:<ACCOUNT_ID>:alias/aws/s3",
+  "timeoutInMinutes": 60,
+  "queuedTimeoutInMinutes": 480,
+  "logsConfig": {
+    "cloudWatchLogs": {
+      "status": "ENABLED",
+      "groupName": "/aws/codebuild/aws-cicd-demo-build",
+      "streamName": ""
+    },
+    "s3Logs": {
+      "status": "DISABLED",
+      "encryptionDisabled": false
+    }
+  }
+}
