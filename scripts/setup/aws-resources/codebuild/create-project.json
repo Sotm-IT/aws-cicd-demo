@@ -12,7 +12,7 @@
   },
   "artifacts": {
     "type": "S3",
-    "location": "aws-cicd-demo-artifacts",
+    "location": "aws-cicd-demo-codebuild-bucket-<ACCOUNT_ID>",
     "name": "aws-cicd-demo-build",
     "packaging": "ZIP",
     "overrideArtifactName": true
@@ -31,8 +31,7 @@
   "logsConfig": {
     "cloudWatchLogs": {
       "status": "ENABLED",
-      "groupName": "/aws/codebuild/aws-cicd-demo-build",
-      "streamName": ""
+      "groupName": "/aws/codebuild/aws-cicd-demo-build"
     },
     "s3Logs": {
       "status": "DISABLED",

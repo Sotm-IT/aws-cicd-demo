@@ -9,7 +9,7 @@ phases:
       - echo Starting build process...
       # テストに必要な場合のみ一時的に依存関係をインストール
       - npm ci --no-production
-      - chmod +x scripts/*.sh
+      - chmod +x scripts/deploy/*.sh
   build:
     commands:
       - echo Running tests...
@@ -28,5 +28,5 @@ artifacts:
     - package.json
     - package-lock.json
     - appspec.yml
-    - scripts/**/*
+    - scripts/deploy/**/*
   discard-paths: no
