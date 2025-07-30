@@ -77,7 +77,7 @@
       "Properties": {
         "InstanceType": { "Ref": "InstanceType" },
         "KeyName": { "Ref": "KeyName" },
-        "ImageId": { "Fn::FindInMap": ["RegionMap", { "Ref": "AWS::Region" }, "UbuntuAMI"] },
+        "ImageId": "ami-0d52744d6551d851e",
         "SubnetId": { "Ref": "SubnetId" },
         "SecurityGroupIds": [{ "Ref": "EC2SecurityGroup" }],
         "IamInstanceProfile": { "Ref": "EC2InstanceProfile" },
@@ -107,7 +107,7 @@
                 "\n",
                 "# Install CodeDeploy agent\n",
                 "cd /home/ubuntu\n",
-                "wget https://aws-codedeploy-", { "Ref": "AWS::Region" }, ".s3.amazonaws.com/latest/install\n",
+                "wget https://aws-codedeploy-ap-northeast-1.s3.amazonaws.com/latest/install\n",
                 "chmod +x ./install\n",
                 "./install auto\n",
                 "rm -f ./install\n",
@@ -161,20 +161,6 @@
         "Roles": [{ "Ref": "EC2Role" }],
         "InstanceProfileName": { "Fn::Sub": "${ProjectName}-instance-profile" }
       }
-    }
-  },
-  "Mappings": {
-    "RegionMap": {
-      "us-east-1": { "UbuntuAMI": "ami-0fc5d935ebf8bc3bc" },
-      "us-east-2": { "UbuntuAMI": "ami-0e83be366243f524a" },
-      "us-west-1": { "UbuntuAMI": "ami-0cbd40f694b804622" },
-      "us-west-2": { "UbuntuAMI": "ami-0efcece6bed30fd98" },
-      "ap-northeast-1": { "UbuntuAMI": "ami-0d52744d6551d851e" },
-      "ap-northeast-2": { "UbuntuAMI": "ami-0f3a440bbcff3d043" },
-      "ap-southeast-1": { "UbuntuAMI": "ami-0eb6f319b31f2e163" },
-      "ap-southeast-2": { "UbuntuAMI": "ami-04f5097681773b989" },
-      "eu-central-1": { "UbuntuAMI": "ami-0f61af304b14f15a3" },
-      "eu-west-1": { "UbuntuAMI": "ami-0694d931cee3dc5cb" }
     }
   },
   "Outputs": {
