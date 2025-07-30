@@ -70,7 +70,7 @@ chmod +x scripts/env-config.sh scripts/helpers/helpers.sh scripts/run/*.sh scrip
 
 ```bash
 # EC2インスタンスの作成
-bash ./scripts/infrastructure/setup-ec2.sh
+npm run ec2:create
 ```
 
 スクリプト実行時に以下の情報を入力します：
@@ -92,7 +92,7 @@ bash ./scripts/infrastructure/setup-ec2.sh
 ### CodeBuild 環境のセットアップ
 
 ```bash
-bash ./scripts/setup/setup-codebuild.sh
+npm run setup:build
 ```
 
 このスクリプトは以下を行います：
@@ -103,7 +103,7 @@ bash ./scripts/setup/setup-codebuild.sh
 ### CodeDeploy 環境のセットアップ
 
 ```bash
-bash ./scripts/setup/setup-codedeploy.sh
+npm run setup:deploy
 ```
 
 このスクリプトは以下を行います：
@@ -116,7 +116,7 @@ bash ./scripts/setup/setup-codedeploy.sh
 ### ビルドの実行
 
 ```bash
-bash ./scripts/run/run-build.sh
+npm run deploy:build
 ```
 
 ビルドが成功すると、以下の処理が実行されます：
@@ -126,7 +126,7 @@ bash ./scripts/run/run-build.sh
 ### デプロイの実行
 
 ```bash
-bash ./scripts/run/run-deploy.sh
+npm run deploy:apply
 ```
 
 デプロイが成功すると、以下の処理が実行されます：
@@ -186,7 +186,7 @@ bash ./scripts/run/run-deploy.sh
 
 ```bash
 # EC2インスタンスの削除
-bash ./scripts/infrastructure/delete-ec2.sh
+npm run ec2:delete
 ```
 
 ## ファイル構成

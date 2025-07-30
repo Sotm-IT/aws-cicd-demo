@@ -7,6 +7,8 @@
     "start": "node app.js",
     "dev": "NODE_ENV=development node app.js",
     "lint": "echo \"No linting configured\"",
+    "setup:build": "bash ./scripts/setup/setup-codebuild.sh",
+    "setup:deploy": "bash ./scripts/setup/setup-codedeploy.sh",
     "deploy:build": "bash ./scripts/run/run-build.sh",
     "deploy:apply": "bash ./scripts/run/run-deploy.sh",
     "ec2:create": "bash ./scripts/infrastructure/setup-ec2.sh",
@@ -14,7 +16,7 @@
     "ec2:delete": "bash ./scripts/infrastructure/delete-ec2.sh"
   },
   "keywords": ["aws", "cicd", "demo", "express", "codebuild", "codedeploy", "cloudformation"],
-  "author": "",
+  "author": "nakaze",
   "license": "ISC",
   "description": "AWS CI/CD パイプラインのデモ用シンプルなExpressアプリケーション",
   "dependencies": {
