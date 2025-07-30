@@ -1,0 +1,198 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "EC2インスタンスとCodeDeployエージェントのセットアップ",
+  "Parameters": {
+    "InstanceType": {
+      "Type": "String",
+      "Default": "t2.micro",
+      "Description": "EC2インスタンスタイプ"
+    },
+    "KeyName": {
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Description": "EC2インスタンスへのアクセスに使用するキーペア名"
+    },
+    "VpcId": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Description": "EC2インスタンスを起動するVPC ID"
+    },
+    "SubnetId": {
+      "Type": "AWS::EC2::Subnet::Id",
+      "Description": "EC2インスタンスを起動するサブネット ID"
+    },
+    "EnvironmentTag": {
+      "Type": "String",
+      "Default": "Development",
+      "Description": "環境を示すタグの値"
+    },
+    "EnvironmentTagKey": {
+      "Type": "String",
+      "Default": "Environment",
+      "Description": "環境を示すタグのキー"
+    },
+    "ProjectName": {
+      "Type": "String",
+      "Default": "aws-cicd-demo",
+      "Description": "プロジェクト名"
+    }
+  },
+  "Resources": {
+    "EC2SecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Security group for EC2 instance",
+        "VpcId": { "Ref": "VpcId" },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": "0.0.0.0/0",
+            "Description": "SSH access"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "3000",
+            "ToPort": "3000",
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Application access"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": "0.0.0.0/0",
+            "Description": "HTTP access"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": { "Fn::Sub": "${ProjectName}-sg" }
+          }
+        ]
+      }
+    },
+    "EC2Instance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "InstanceType": { "Ref": "InstanceType" },
+        "KeyName": { "Ref": "KeyName" },
+        "ImageId": { "Fn::FindInMap": ["RegionMap", { "Ref": "AWS::Region" }, "UbuntuAMI"] },
+        "SubnetId": { "Ref": "SubnetId" },
+        "SecurityGroupIds": [{ "Ref": "EC2SecurityGroup" }],
+        "IamInstanceProfile": { "Ref": "EC2InstanceProfile" },
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash -xe\n",
+                "# Update and install dependencies\n",
+                "apt-get update\n",
+                "apt-get install -y ruby-full wget\n",
+                "apt-get install -y unzip\n",
+                "\n",
+                "# Install AWS CLI v2\n",
+                "curl \"https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip\" -o \"awscliv2.zip\"\n",
+                "unzip awscliv2.zip\n",
+                "./aws/install\n",
+                "rm -rf aws awscliv2.zip\n",
+                "\n",
+                "# Install Node.js\n",
+                "curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -\n",
+                "apt-get install -y nodejs\n",
+                "\n",
+                "# Install PM2\n",
+                "npm install -g pm2\n",
+                "\n",
+                "# Install CodeDeploy agent\n",
+                "cd /home/ubuntu\n",
+                "wget https://aws-codedeploy-", { "Ref": "AWS::Region" }, ".s3.amazonaws.com/latest/install\n",
+                "chmod +x ./install\n",
+                "./install auto\n",
+                "rm -f ./install\n",
+                "\n",
+                "# Create application directory\n",
+                "mkdir -p /var/www/html/", { "Ref": "ProjectName" }, "\n",
+                "chown -R ubuntu:ubuntu /var/www/html/", { "Ref": "ProjectName" }, "\n"
+              ]
+            ]
+          }
+        },
+        "Tags": [
+          {
+            "Key": { "Ref": "EnvironmentTagKey" },
+            "Value": { "Ref": "EnvironmentTag" }
+          },
+          {
+            "Key": "Name",
+            "Value": { "Fn::Sub": "${ProjectName}-instance" }
+          }
+        ]
+      }
+    },
+    "EC2Role": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": ["ec2.amazonaws.com"]
+              },
+              "Action": ["sts:AssumeRole"]
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforAWSCodeDeploy",
+          "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        ],
+        "Path": "/",
+        "RoleName": { "Fn::Sub": "${ProjectName}-ec2-role" }
+      }
+    },
+    "EC2InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [{ "Ref": "EC2Role" }],
+        "InstanceProfileName": { "Fn::Sub": "${ProjectName}-instance-profile" }
+      }
+    }
+  },
+  "Mappings": {
+    "RegionMap": {
+      "us-east-1": { "UbuntuAMI": "ami-0fc5d935ebf8bc3bc" },
+      "us-east-2": { "UbuntuAMI": "ami-0e83be366243f524a" },
+      "us-west-1": { "UbuntuAMI": "ami-0cbd40f694b804622" },
+      "us-west-2": { "UbuntuAMI": "ami-0efcece6bed30fd98" },
+      "ap-northeast-1": { "UbuntuAMI": "ami-0d52744d6551d851e" },
+      "ap-northeast-2": { "UbuntuAMI": "ami-0f3a440bbcff3d043" },
+      "ap-southeast-1": { "UbuntuAMI": "ami-0eb6f319b31f2e163" },
+      "ap-southeast-2": { "UbuntuAMI": "ami-04f5097681773b989" },
+      "eu-central-1": { "UbuntuAMI": "ami-0f61af304b14f15a3" },
+      "eu-west-1": { "UbuntuAMI": "ami-0694d931cee3dc5cb" }
+    }
+  },
+  "Outputs": {
+    "InstanceId": {
+      "Description": "EC2インスタンスID",
+      "Value": { "Ref": "EC2Instance" }
+    },
+    "PublicDnsName": {
+      "Description": "EC2インスタンスのパブリックDNS名",
+      "Value": { "Fn::GetAtt": ["EC2Instance", "PublicDnsName"] }
+    },
+    "PublicIp": {
+      "Description": "EC2インスタンスのパブリックIP",
+      "Value": { "Fn::GetAtt": ["EC2Instance", "PublicIp"] }
+    },
+    "SecurityGroupId": {
+      "Description": "セキュリティグループID",
+      "Value": { "Ref": "EC2SecurityGroup" }
+    }
+  }
+}

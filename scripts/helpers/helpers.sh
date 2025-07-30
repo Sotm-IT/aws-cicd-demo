@@ -1,17 +1,26 @@
 #!/bin/bash
 # AWS CI/CDデモ用ヘルパー関数
 
+# エラーハンドリングのインポート
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ERROR_HANDLING_PATH="$SCRIPT_DIR/error-handling.sh"
+
+if [ -f "$ERROR_HANDLING_PATH" ]; then
+    source "$ERROR_HANDLING_PATH"
+else
+    echo "エラーハンドリングスクリプトが見つかりません: $ERROR_HANDLING_PATH" >&2
+fi
+
 # 環境変数を読み込む
 import_environment_variables() {
     # 環境変数設定ファイルを読み込む
-    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local env_config_path="$(dirname "$script_dir")/env-config.sh"
+    local env_config_path="$(dirname "$SCRIPT_DIR")/env-config.sh"
     
     if [ -f "$env_config_path" ]; then
         source "$env_config_path"
         return 0
     else
-        echo "環境変数設定ファイルが見つかりません: $env_config_path" >&2
+        echo -e "\e[31m環境変数設定ファイルが見つかりません: $env_config_path\e[0m" >&2
         return 1
     fi
 }

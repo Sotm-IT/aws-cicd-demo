@@ -5,15 +5,22 @@
   "scripts": {
     "test": "echo \"No tests specified\" && exit 0",
     "start": "node app.js",
-    "lint": "echo \"No linting configured\""
+    "dev": "NODE_ENV=development node app.js",
+    "lint": "echo \"No linting configured\"",
+    "deploy:build": "bash ./scripts/run/run-build.sh",
+    "deploy:apply": "bash ./scripts/run/run-deploy.sh",
+    "ec2:create": "bash ./scripts/infrastructure/setup-ec2.sh",
+    "ec2:status": "bash ./scripts/infrastructure/check-ec2.sh",
+    "ec2:delete": "bash ./scripts/infrastructure/delete-ec2.sh"
   },
-  "keywords": ["aws", "cicd", "demo", "express"],
+  "keywords": ["aws", "cicd", "demo", "express", "codebuild", "codedeploy", "cloudformation"],
   "author": "",
   "license": "ISC",
   "description": "AWS CI/CD パイプラインのデモ用シンプルなExpressアプリケーション",
   "dependencies": {
     "express": "^4.18.2"
   },
+  "devDependencies": {},
   "engines": {
     "node": ">=16.0.0"
   }

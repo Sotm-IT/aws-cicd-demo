@@ -7,23 +7,25 @@ phases:
     commands:
       - echo Node.js version $(node -v)
       - echo NPM version $(npm -v)
+      - echo "Installing dependencies..."
   pre_build:
     commands:
-      - echo Starting build process...
+      - echo "Starting build process at $(date)"
       # テストに必要な場合のみ一時的に依存関係をインストール
       - npm ci --no-production
       - chmod +x scripts/deploy/*.sh
   build:
     commands:
-      - echo Running tests...
+      - echo "Running tests..."
       - npm test || echo "No tests specified"
-      - echo Running linting...
+      - echo "Running linting..."
       - npm run lint || echo "No linting configured"
   post_build:
     commands:
-      - echo Build completed on `date`
+      - echo "Build completed on $(date)"
       # デプロイ前に一時的な node_modules を削除
       - rm -rf node_modules
+      - echo "Preparing artifact..."
 
 artifacts:
   files:
@@ -33,3 +35,16 @@ artifacts:
     - appspec.yml
     - scripts/deploy/**/*
   discard-paths: no
+
+cache:
+  paths:
+    - '/root/.npm/**/*'
+
+reports:
+  # 将来テストレポートを追加する場合の設定
+  unit-tests:
+    files:
+      - 'reports/test-results.xml'
+    discard-paths: yes
+    file-format: 'JunitXml'
+    base-directory: '.'

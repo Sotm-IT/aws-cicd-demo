@@ -1,0 +1,12 @@
+{
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/*.bak": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true
+  }
+}
