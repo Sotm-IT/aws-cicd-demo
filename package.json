@@ -1,16 +1,20 @@
 {
   "name": "aws-cicd-demo",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node app.js"
+    "test": "echo \"No tests specified\" && exit 0",
+    "start": "node app.js",
+    "lint": "echo \"No linting configured\""
   },
-  "keywords": [],
+  "keywords": ["aws", "cicd", "demo", "express"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "AWS CI/CD パイプラインのデモ用シンプルなExpressアプリケーション",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }

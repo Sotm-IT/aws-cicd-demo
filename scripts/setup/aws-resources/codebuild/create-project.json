@@ -12,7 +12,7 @@
   },
   "artifacts": {
     "type": "S3",
-    "location": "aws-cicd-demo-codebuild-bucket-<ACCOUNT_ID>",
+    "location": "aws-cicd-demo-codebuild-bucket-123456789012",
     "name": "aws-cicd-demo-build",
     "packaging": "ZIP",
     "overrideArtifactName": true
@@ -24,8 +24,8 @@
     "environmentVariables": [],
     "privilegedMode": false
   },
-  "serviceRole": "arn:aws:iam::<ACCOUNT_ID>:role/codebuild-aws-cicd-demo-service-role",
-  "encryptionKey": "arn:aws:kms:ap-northeast-1:<ACCOUNT_ID>:alias/aws/s3",
+  "serviceRole": "arn:aws:iam::123456789012:role/codebuild-aws-cicd-demo-service-role",
+  "encryptionKey": "arn:aws:kms:ap-northeast-1:123456789012:alias/aws/s3",
   "timeoutInMinutes": 60,
   "queuedTimeoutInMinutes": 480,
   "logsConfig": {

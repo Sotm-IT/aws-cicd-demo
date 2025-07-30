@@ -8,18 +8,19 @@ Expressを使ったWebアプリケーションで、ルートパス(`/`)にア�
 ## 必要条件
 - Node.js 16以上
 - npm
-- AWS CLI
+- AWS CLI (バージョン2推奨)
 - AWS アカウント
-- PowerShell (AWS設定スクリプト実行用)
+- Ubuntu環境
 - PM2（本番環境での実行用）
+- jq (JSONパース用、オプションですがインストールを推奨)
 
 ## セットアップ方法
 1. 依存パッケージのインストール
-   ```powershell
+   ```bash
    npm install
    ```
 2. アプリケーションの起動
-   ```powershell
+   ```bash
    node app.js
    ```
 3. ブラウザで `http://localhost:3000` にアクセス
@@ -27,19 +28,21 @@ Expressを使ったWebアプリケーションで、ルートパス(`/`)にア�
 ## EC2セットアップ（デプロイ先の準備）
 1. EC2インスタンスに `Environment:Development` タグを付与（各自で設定した値）
 
-2. EC2にSSH接続し、以下のセットアップを実行
+2. Ubuntu EC2インスタンスにSSH接続し、以下のセットアップを実行
    ```bash
-   # Node.jsインストール
-   curl -fsSL https://rpm.nodesource.com/setup_16.x | sudo bash -
-   sudo yum install -y nodejs
+   # 必要なパッケージの更新
+   sudo apt update
 
-   # CodeDeployエージェントのインストール
-   sudo yum install -y ruby wget
-   wget https://aws-codedeploy-ap-northeast-1.s3.amazonaws.com/latest/install
-   chmod +x ./install
-   sudo ./install auto
+```bash
+# Node.jsインストール
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs
 
-   # PM2のインストール
+# CodeDeployエージェントのインストール
+sudo apt install -y ruby-full wget
+wget https://aws-codedeploy-ap-northeast-1.s3.amazonaws.com/latest/install
+chmod +x ./install
+sudo ./install auto   # PM2のインストール
    sudo npm install -g pm2
    ```
 
@@ -49,14 +52,14 @@ Expressを使ったWebアプリケーションで、ルートパス(`/`)にア�
 
 ### ステップ1：AWS環境のセットアップ
 1. AWS CLI認証情報の設定
-   ```powershell
+   ```bash
    aws configure
    # アクセスキー、シークレットキー、リージョン等を入力
    ```
 
 2. CodeBuild環境のセットアップ
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\scripts\setup\Setup-CodeBuild.ps1
+   ```bash
+   bash ./scripts/setup/setup-codebuild.sh
    ```
    このスクリプトは以下を行います：
    - S3バケット作成（ビルドアーティファクト保存用）
@@ -64,8 +67,8 @@ Expressを使ったWebアプリケーションで、ルートパス(`/`)にア�
    - CodeBuildプロジェクト作成
 
 3. CodeDeploy環境のセットアップ
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\scripts\setup\Setup-CodeDeploy.ps1
+   ```bash
+   bash ./scripts/setup/setup-codedeploy.sh
    ```
    このスクリプトは以下を行います：
    - IAMロール作成（CodeDeploy実行権限用）
@@ -76,9 +79,9 @@ Expressを使ったWebアプリケーションで、ルートパス(`/`)にア�
 
 CodeBuildでソースコードをビルドして、アーティファクト（デプロイ可能なパッケージ）を作成します：
 
-```powershell
+```bash
 # 簡易コマンド（環境変数を使用）
-.\scripts\run\Run-Build.ps1
+bash ./scripts/run/run-build.sh
 ```
 
 ビルドが成功すると、以下の処理が実行されます：
@@ -89,9 +92,9 @@ CodeBuildでソースコードをビルドして、アーティファクト（�
 
 ビルドアーティファクトをEC2インスタンスにデプロイします：
 
-```powershell
+```bash
 # 簡易コマンド（環境変数を使用）
-.\scripts\run\Run-Deploy.ps1
+bash ./scripts/run/run-deploy.sh
 ```
 
 デプロイが成功すると、以下の処理が実行されます：
@@ -108,24 +111,24 @@ CodeBuildでソースコードをビルドして、アーティファクト（�
 2. ブラウザで `http://<EC2インスタンスのIP>:3000` にアクセス
 3. 「Hello from AWS CI/CD Demo!」というメッセージが表示されれば成功
 
-## 環境変数の管理
+## 環境設定
 
 このプロジェクトでは、AWS認証情報やリソース名などの環境変数を一元管理しています。これにより、アカウントIDやビルドアーティファクト名を手動で入力する必要がなくなります。
 
-### 環境変数の設定ファイル
+### 設定ファイル
 
-環境変数は `scripts/env-config.ps1` で管理され、以下の変数が定義されています：
+環境変数は `scripts/env-config.sh` で管理され、以下の変数が定義されています：
 
-- `$ENV:AWS_REGION` - 使用するAWSリージョン
-- `$ENV:PROJECT_NAME` - プロジェクト名
-- `$ENV:ACCOUNT_ID` - AWSアカウントID（自動取得）
-- `$ENV:S3_BUCKET_NAME` - S3バケット名
-- `$ENV:EC2_TAG_KEY` - EC2インスタンスのタグキー
-- `$ENV:EC2_TAG_VALUE` - EC2インスタンスのタグ値
-- `$ENV:LATEST_BUILD_ID` - 最新のビルドID
-- `$ENV:LATEST_BUILD_ARTIFACT` - 最新のビルドアーティファクト名
+- `AWS_REGION` - 使用するAWSリージョン
+- `PROJECT_NAME` - プロジェクト名
+- `ACCOUNT_ID` - AWSアカウントID（自動取得）
+- `S3_BUCKET_NAME` - S3バケット名
+- `EC2_TAG_KEY` - EC2インスタンスのタグキー
+- `EC2_TAG_VALUE` - EC2インスタンスのタグ値
+- `LATEST_BUILD_ID` - 最新のビルドID
+- `LATEST_BUILD_ARTIFACT` - 最新のビルドアーティファクト名
 
-環境変数ファイルは、各セットアップ手順の実行前に必要に応じて編集してください。特に、`$ENV:EC2_TAG_KEY`と`$ENV:EC2_TAG_VALUE`はEC2インスタンスのタグに合わせて変更してください。
+設定ファイルは、各セットアップ手順の実行前に必要に応じて編集してください。特に、`EC2_TAG_KEY`と`EC2_TAG_VALUE`はEC2インスタンスのタグに合わせて変更してください。
 
 ## トラブルシューティング
 
@@ -146,8 +149,26 @@ CodeBuildでソースコードをビルドして、アーティファクト（�
 
 4. **環境変数関連のエラー**
    - スクリプトが正しい場所から実行されているか確認
-   - `scripts/env-config.ps1`ファイルが存在するか確認
+   - `scripts/env-config.sh`ファイルが存在するか確認
    - AWS認証情報が正しく設定されているか確認: `aws configure`
+   - スクリプトに実行権限があるか確認: `chmod +x scripts/**/*.sh`
 
 ---
+
+## 環境セットアップ
+
+環境セットアップの詳細な手順については、このリポジトリの `SETUP.md` を参照してください。
+
+簡単な手順：
+
+1. AWS CLI認証情報の設定
+   ```bash
+   aws configure
+   ```
+
+2. スクリプトに実行権限を付与
+   ```bash
+   chmod +x scripts/env-config.sh scripts/helpers/helpers.sh scripts/run/*.sh scripts/setup/*.sh scripts/deploy/*.sh
+   ```
+
 AWS CI/CDパイプラインを使ったデモアプリケーションをお楽しみください。

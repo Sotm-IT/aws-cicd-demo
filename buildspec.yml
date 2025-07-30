@@ -4,6 +4,9 @@ phases:
   install:
     runtime-versions:
       nodejs: 16
+    commands:
+      - echo Node.js version $(node -v)
+      - echo NPM version $(npm -v)
   pre_build:
     commands:
       - echo Starting build process...
