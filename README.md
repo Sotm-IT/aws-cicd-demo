@@ -71,6 +71,9 @@ chmod +x scripts/env-config.sh scripts/helpers/helpers.sh scripts/run/*.sh scrip
 ```bash
 # EC2インスタンスの作成
 npm run ec2:create
+
+# WSL環境で実行する場合は以下のコマンドを直接使用してください
+bash ./scripts/infrastructure/setup-ec2.sh
 ```
 
 スクリプト実行時に以下の情報を入力します：
@@ -93,6 +96,9 @@ npm run ec2:create
 
 ```bash
 npm run setup:build
+
+# WSL環境で実行する場合は以下のコマンドを直接使用してください
+bash ./scripts/setup/setup-codebuild.sh
 ```
 
 このスクリプトは以下を行います：
@@ -104,6 +110,9 @@ npm run setup:build
 
 ```bash
 npm run setup:deploy
+
+# WSL環境で実行する場合は以下のコマンドを直接使用してください
+bash ./scripts/setup/setup-codedeploy.sh
 ```
 
 このスクリプトは以下を行います：
@@ -117,6 +126,9 @@ npm run setup:deploy
 
 ```bash
 npm run deploy:build
+
+# WSL環境で実行する場合は以下のコマンドを直接使用してください
+bash ./scripts/run/run-build.sh
 ```
 
 ビルドが成功すると、以下の処理が実行されます：
@@ -127,6 +139,9 @@ npm run deploy:build
 
 ```bash
 npm run deploy:apply
+
+# WSL環境で実行する場合は以下のコマンドを直接使用してください
+bash ./scripts/run/run-deploy.sh
 ```
 
 デプロイが成功すると、以下の処理が実行されます：
@@ -187,6 +202,9 @@ npm run deploy:apply
 ```bash
 # EC2インスタンスの削除
 npm run ec2:delete
+
+# WSL環境で実行する場合は以下のコマンドを直接使用してください
+bash ./scripts/infrastructure/delete-ec2.sh
 ```
 
 ## ファイル構成

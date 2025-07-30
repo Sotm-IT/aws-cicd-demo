@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # 厳格モードを有効化
 set -e
 

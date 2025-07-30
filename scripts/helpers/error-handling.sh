@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # エラーハンドリング用共通関数
 
 # カラー定義

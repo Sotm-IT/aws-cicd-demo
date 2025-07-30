@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AWS CI/CDデモ用環境変数設定ファイル
 # 最終更新: 2025-07-30
 

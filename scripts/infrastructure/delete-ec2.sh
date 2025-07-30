@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # EC2インスタンスを削除するスクリプト
 set -e
 

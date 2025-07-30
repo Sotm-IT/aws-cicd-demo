@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # EC2インスタンスをCloudFormationを使って作成するスクリプト
 set -e
 
@@ -11,7 +11,7 @@ source "$HELPER_PATH"
 import_environment_variables
 
 # CloudFormationテンプレートのパス
-TEMPLATE_PATH="./ec2-instance-template.json"
+TEMPLATE_PATH="$SCRIPT_DIR/ec2-instance-template.json"
 
 # スタック名
 STACK_NAME="${PROJECT_NAME}-ec2-stack"

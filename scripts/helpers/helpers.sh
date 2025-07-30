@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AWS CI/CDデモ用ヘルパー関数
 
 # エラーハンドリングのインポート
