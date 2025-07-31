@@ -3,15 +3,15 @@
 set -e
 
 # ヘルパー関数を読み込む
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HELPER_PATH="$(dirname "$SCRIPT_DIR")/helpers/helpers.sh"
+INFRASTRUCTURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HELPER_PATH="$(dirname "$INFRASTRUCTURE_DIR")/helpers/helpers.sh"
 source "$HELPER_PATH"
 
 # 環境変数を読み込む
 import_environment_variables
 
 # CloudFormationテンプレートのパス
-TEMPLATE_PATH="$SCRIPT_DIR/ec2-instance-template.json"
+TEMPLATE_PATH="$INFRASTRUCTURE_DIR/ec2-instance-template.json"
 
 # スタック名
 STACK_NAME="${PROJECT_NAME}-ec2-stack"
@@ -34,6 +34,7 @@ echo "環境タグ: $EC2_TAG_KEY=$EC2_TAG_VALUE"
 
 # CloudFormationスタックの作成
 echo "CloudFormationスタックを作成中..."
+
 aws cloudformation create-stack \
   --stack-name $STACK_NAME \
   --template-body file://$TEMPLATE_PATH \
@@ -80,34 +81,59 @@ if [ $? -eq 0 ]; then
         echo "EC2_PUBLIC_IP=$PUBLIC_IP"
         echo "EC2_TAG_VALUE=$EC2_TAG_VALUE"
         
-        # バックアップの作成
-        cp ../env-config.sh ../env-config.sh.bak
+        # env-config.shのパスを取得
+        ENV_CONFIG_PATH="$(dirname "$INFRASTRUCTURE_DIR")/env-config.sh"
         
-        # 環境変数をenv-config.shに追加
-        if grep -q "EC2_INSTANCE_ID" ../env-config.sh; then
-            # 既存の変数を更新
-            sed -i "s/export EC2_INSTANCE_ID=.*/export EC2_INSTANCE_ID=\"$INSTANCE_ID\"/" ../env-config.sh
-        else
-            # 新しい変数を追加
-            echo -e "\n# EC2インスタンス情報\nexport EC2_INSTANCE_ID=\"$INSTANCE_ID\"" >> ../env-config.sh
+        if [ ! -f "$ENV_CONFIG_PATH" ]; then
+            # 正確な場所を探す
+            ENV_CONFIG_PATH=$(find /mnt/c/Users/user/playGround/aws-cicd-demo -name "env-config.sh" | head -1)
+            
+            if [ -z "$ENV_CONFIG_PATH" ]; then
+                # ファイルが見つからない場合は新規作成
+                ENV_CONFIG_PATH="$(dirname "$INFRASTRUCTURE_DIR")/env-config.sh"
+                touch "$ENV_CONFIG_PATH"
+                echo "#!/usr/bin/env bash" > "$ENV_CONFIG_PATH"
+                echo "# AWS CI/CDデモ用環境変数設定ファイル" >> "$ENV_CONFIG_PATH"
+                echo "# 最終更新: $(date +"%Y-%m-%d")" >> "$ENV_CONFIG_PATH"
+                echo "" >> "$ENV_CONFIG_PATH"
+                echo "# 基本設定" >> "$ENV_CONFIG_PATH"
+                echo "export AWS_REGION=\"$AWS_REGION\"" >> "$ENV_CONFIG_PATH"
+                echo "export PROJECT_NAME=\"$PROJECT_NAME\"" >> "$ENV_CONFIG_PATH"
+                echo "" >> "$ENV_CONFIG_PATH"
+            fi
         fi
         
-        if grep -q "EC2_PUBLIC_IP" ../env-config.sh; then
+        # バックアップの作成
+        cp "$ENV_CONFIG_PATH" "${ENV_CONFIG_PATH}.bak"
+        
+        # 環境変数をenv-config.shに追加
+        if grep -q "EC2_INSTANCE_ID" "$ENV_CONFIG_PATH"; then
             # 既存の変数を更新
-            sed -i "s/export EC2_PUBLIC_IP=.*/export EC2_PUBLIC_IP=\"$PUBLIC_IP\"/" ../env-config.sh
+            sed -i "s/export EC2_INSTANCE_ID=.*/export EC2_INSTANCE_ID=\"$INSTANCE_ID\"/" "$ENV_CONFIG_PATH"
         else
             # 新しい変数を追加
-            echo "export EC2_PUBLIC_IP=\"$PUBLIC_IP\"" >> ../env-config.sh
+            echo -e "\n# EC2インスタンス情報\nexport EC2_INSTANCE_ID=\"$INSTANCE_ID\"" >> "$ENV_CONFIG_PATH"
+        fi
+        
+        if grep -q "EC2_PUBLIC_IP" "$ENV_CONFIG_PATH"; then
+            # 既存の変数を更新
+            sed -i "s/export EC2_PUBLIC_IP=.*/export EC2_PUBLIC_IP=\"$PUBLIC_IP\"/" "$ENV_CONFIG_PATH"
+        else
+            # 新しい変数を追加
+            echo "export EC2_PUBLIC_IP=\"$PUBLIC_IP\"" >> "$ENV_CONFIG_PATH"
         fi
         
         # EC2_TAG_VALUEを更新
-        if grep -q "EC2_TAG_VALUE" ../env-config.sh; then
+        if grep -q "EC2_TAG_VALUE" "$ENV_CONFIG_PATH"; then
             # 既存の変数を更新
-            sed -i "s/export EC2_TAG_VALUE=.*/export EC2_TAG_VALUE=\"$EC2_TAG_VALUE\" # EC2インスタンスのタグ値（setup-ec2.sh実行時に上書きされる場合があります）/" ../env-config.sh
+            sed -i "s/export EC2_TAG_VALUE=.*/export EC2_TAG_VALUE=\"$EC2_TAG_VALUE\" # EC2インスタンスのタグ値（setup-ec2.sh実行時に上書きされる場合があります）/" "$ENV_CONFIG_PATH"
+        else
+            # 新しい変数を追加
+            echo "export EC2_TAG_VALUE=\"$EC2_TAG_VALUE\" # EC2インスタンスのタグ値" >> "$ENV_CONFIG_PATH"
         fi
         
         echo ""
-        echo "環境変数ファイルを更新しました: ../env-config.sh"
+        echo "環境変数ファイルを更新しました: $ENV_CONFIG_PATH"
         echo "設定が完了しました！"
     else
         echo "EC2インスタンスの作成に失敗しました。AWS CloudFormationコンソールで詳細を確認してください。"

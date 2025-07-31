@@ -2,8 +2,8 @@
 # AWS CI/CDデモ用ヘルパー関数
 
 # エラーハンドリングのインポート
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ERROR_HANDLING_PATH="$SCRIPT_DIR/error-handling.sh"
+HELPERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ERROR_HANDLING_PATH="$HELPERS_DIR/error-handling.sh"
 
 if [ -f "$ERROR_HANDLING_PATH" ]; then
     source "$ERROR_HANDLING_PATH"
@@ -14,15 +14,26 @@ fi
 # 環境変数を読み込む
 import_environment_variables() {
     # 環境変数設定ファイルを読み込む
-    local env_config_path="$(dirname "$SCRIPT_DIR")/env-config.sh"
+    local env_config_path="$(dirname "$HELPERS_DIR")/env-config.sh"
     
     if [ -f "$env_config_path" ]; then
         source "$env_config_path"
+        echo -e "\e[32mAWS CI/CD Demo environment variables set\e[0m"
+        echo -e "\e[33mProject name: $PROJECT_NAME\e[0m"
+        echo -e "\e[33mAWS region: $AWS_REGION\e[0m"
+        echo -e "\e[33mAccount ID: $ACCOUNT_ID\e[0m"
+        echo -e "\e[33mS3 bucket name: $S3_BUCKET_NAME\e[0m"
+        echo -e "\e[33mEC2タグ: $EC2_TAG_KEY=$EC2_TAG_VALUE\e[0m"
         return 0
     else
         echo -e "\e[31m環境変数設定ファイルが見つかりません: $env_config_path\e[0m" >&2
         return 1
     fi
+}
+
+# 環境設定ファイルのパスを取得する共通関数
+get_env_config_path() {
+    echo "$(dirname "$HELPERS_DIR")/env-config.sh"
 }
 
 # ビルドを実行して結果を待機する

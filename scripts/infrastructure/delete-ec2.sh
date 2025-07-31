@@ -3,8 +3,8 @@
 set -e
 
 # ヘルパー関数を読み込む
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HELPER_PATH="$(dirname "$SCRIPT_DIR")/helpers/helpers.sh"
+INFRASTRUCTURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HELPER_PATH="$(dirname "$INFRASTRUCTURE_DIR")/helpers/helpers.sh"
 source "$HELPER_PATH"
 
 # 環境変数を読み込む

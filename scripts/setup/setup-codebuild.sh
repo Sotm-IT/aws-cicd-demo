@@ -3,8 +3,8 @@
 set -e
 
 # ヘルパー関数を読み込む
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HELPER_PATH="$(dirname "$SCRIPT_DIR")/helpers/helpers.sh"
+SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HELPER_PATH="$(dirname "$SETUP_DIR")/helpers/helpers.sh"
 source "$HELPER_PATH"
 
 # 環境変数を読み込む
@@ -16,7 +16,7 @@ echo -e "\e[33mAccount ID: $ACCOUNT_ID\e[0m"
 echo -e "\e[33mBucket name: $S3_BUCKET_NAME\e[0m"
 
 # プロジェクト設定ファイルの準備
-AWS_RESOURCES_PATH="$SCRIPT_DIR/aws-resources"
+AWS_RESOURCES_PATH="$SETUP_DIR/aws-resources"
 PROJECT_JSON_PATH="$AWS_RESOURCES_PATH/codebuild/create-project.json"
 
 # JSONファイルの<ACCOUNT_ID>を置き換える
