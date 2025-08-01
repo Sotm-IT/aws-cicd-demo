@@ -68,6 +68,7 @@ GitHub Actions用のIAMユーザーに以下の権限が必要：
             "Action": [
                 "codedeploy:CreateDeployment",
                 "codedeploy:GetApplication",
+                "codedeploy:GetApplicationRevision",
                 "codedeploy:GetDeployment",
                 "codedeploy:GetDeploymentConfig",
                 "codedeploy:RegisterApplicationRevision"
