@@ -162,7 +162,40 @@ bash ./scripts/run/run-deploy.sh
 2. ブラウザで `http://<EC2インスタンスのIP>:3000` にアクセス
 3. 「Hello from AWS CI/CD Demo!」というメッセージが表示されれば成功
 
-## 8. 環境設定
+## 8. GitHub Actions CI/CD（新機能）
+
+このプロジェクトは、AWS CodeBuildに加えて**GitHub Actions**による CI/CD パイプラインもサポートしています。
+
+### 特徴
+- **自動トリガー**: `main` や `develop` ブランチへのプッシュで自動実行
+- **並列処理**: ビルド、アップロード、デプロイを段階的に実行
+- **環境保護**: Production環境での承認フロー
+- **ヘルスチェック**: デプロイ後の自動検証
+
+### セットアップ手順
+
+1. **GitHub Secretsの設定**
+   ```
+   Settings > Secrets and variables > Actions で以下を追加:
+   - AWS_ACCESS_KEY_ID: あなたのAWSアクセスキーID
+   - AWS_SECRET_ACCESS_KEY: あなたのAWSシークレットアクセスキー
+   ```
+
+2. **ワークフローの実行**
+   - 自動実行: `main` ブランチにプッシュ
+   - 手動実行: GitHub の Actions タブから「Run workflow」
+
+3. **詳細な設定ガイド**
+   - [GitHub Actions Setup Guide](.github/GITHUB_ACTIONS_SETUP.md) を参照
+
+### パイプライン比較
+
+```bash
+# GitHub Actions vs AWS CodeBuild の比較を実行
+bash ./scripts/comparison/compare-pipelines.sh
+```
+
+## 9. 環境設定
 
 このプロジェクトでは、AWS認証情報やリソース名などの環境変数を一元管理しています。
 

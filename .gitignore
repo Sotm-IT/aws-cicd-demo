@@ -5,3 +5,14 @@ scripts/setup/aws-resources/codebuild/create-project.json
 scripts/setup/aws-resources/codebuild/create-bucket.json
 scripts/setup/aws-resources/codebuild/service-role-policy.json
 
+# GitHub Actions artifacts (local testing)
+*.zip
+dist/
+
+# AWS credentials and config files
+.aws/
+
+# Environment variables
+.env
+.env.local
+

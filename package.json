@@ -13,7 +13,9 @@
     "deploy:apply": "bash ./scripts/run/run-deploy.sh",
     "ec2:create": "bash ./scripts/infrastructure/setup-ec2.sh",
     "ec2:status": "bash ./scripts/infrastructure/check-ec2.sh",
-    "ec2:delete": "bash ./scripts/infrastructure/delete-ec2.sh"
+    "ec2:delete": "bash ./scripts/infrastructure/delete-ec2.sh",
+    "github:build": "echo 'Use GitHub Actions for automated builds'",
+    "github:deploy": "echo 'Use GitHub Actions for automated deployments'"
   },
   "keywords": ["aws", "cicd", "demo", "express", "codebuild", "codedeploy", "cloudformation"],
   "author": "nakaze",
