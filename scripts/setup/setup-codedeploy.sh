@@ -11,8 +11,9 @@ source "$HELPER_PATH"
 import_environment_variables
 
 # CodeDeployの変数設定
-export DEPLOY_GROUP="$PROJECT_NAME-group"
+export DEPLOY_GROUP="$PROJECT_NAME-deployment-group"
 export SERVICE_ROLE_NAME="codedeploy-$PROJECT_NAME-service-role"
+export APPLICATION_NAME="$PROJECT_NAME-app"
 AWS_RESOURCES_PATH="$SETUP_DIR/aws-resources"
 
 # IAMロールを作成する関数
@@ -93,6 +94,7 @@ create_deployment_group() {
 main() {
     echo -e "\e[33mSetting up CodeDeploy environment...\e[0m"
     echo -e "\e[33mProject: $PROJECT_NAME\e[0m"
+    echo -e "\e[33mApplication Name: $APPLICATION_NAME\e[0m"
     echo -e "\e[33mDeploy Group: $DEPLOY_GROUP\e[0m"
     echo -e "\e[33mService Role: $SERVICE_ROLE_NAME\e[0m"
     echo ""
@@ -101,11 +103,11 @@ main() {
     create_iam_role "$SERVICE_ROLE_NAME"
     
     # 2. CodeDeployアプリケーションの作成
-    create_codedeploy_application "$PROJECT_NAME"
+    create_codedeploy_application "$APPLICATION_NAME"
     
     # 3. デプロイグループの作成
     local role_arn="arn:aws:iam::$ACCOUNT_ID:role/$SERVICE_ROLE_NAME"
-    create_deployment_group "$PROJECT_NAME" "$DEPLOY_GROUP" "$role_arn"
+    create_deployment_group "$APPLICATION_NAME" "$DEPLOY_GROUP" "$role_arn"
     
     echo ""
     echo -e "\e[32mCodeDeploy setup completed successfully!\e[0m"
