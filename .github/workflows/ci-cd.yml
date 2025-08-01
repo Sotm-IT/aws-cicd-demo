@@ -1,4 +1,4 @@
-name: AWS CI/CD with GitHub Actions
+name: AWS CI/CD via GitHub Actions
 
 on:
   push:
@@ -10,125 +10,13 @@ on:
 env:
   AWS_REGION: ap-northeast-1
   PROJECT_NAME: aws-cicd-demo
-  NODE_VERSION: '18'
 
 jobs:
-  build:
-    name: Build Application
+  trigger-codebuild:
+    name: Trigger AWS CodeBuild
     runs-on: ubuntu-latest
     outputs:
-      artifact-name: ${{ steps.build.outputs.artifact-name }}
-      artifact-path: ${{ steps.build.outputs.artifact-path }}
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: |
-        echo "Installing dependencies..."
-        npm ci --only=production
-    
-    - name: Run tests
-      run: |
-        echo "Running tests..."
-        npm test || echo "No tests specified - continuing build"
-    
-    - name: Run linting
-      run: |
-        echo "Running linting..."
-        npm run lint || echo "No linting configured - continuing build"
-    
-    - name: Build application artifact
-      id: build
-      run: |
-        echo "Creating deployment artifact..."
-        
-        # Create build timestamp
-        BUILD_TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        ARTIFACT_NAME="aws-cicd-demo-github-${{ github.run_number }}-${BUILD_TIMESTAMP}.zip"
-        
-        # Create artifact directory
-        mkdir -p dist
-        
-        # Copy necessary files for deployment
-        cp app.js dist/
-        cp package.json dist/
-        cp package-lock.json dist/
-        cp appspec.yml dist/
-        cp -r scripts/deploy dist/scripts/
-        
-        # Create ZIP artifact
-        cd dist
-        zip -r "../${ARTIFACT_NAME}" .
-        cd ..
-        
-        # Verify artifact
-        ls -la "${ARTIFACT_NAME}"
-        unzip -l "${ARTIFACT_NAME}"
-        
-        # Set outputs
-        echo "artifact-name=${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
-        echo "artifact-path=${GITHUB_WORKSPACE}/${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
-        
-        echo "Build artifact created: ${ARTIFACT_NAME}"
-    
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-artifact-${{ github.run_number }}
-        path: ${{ steps.build.outputs.artifact-path }}
-        retention-days: 30
-
-  upload-to-s3:
-    name: Upload to S3
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    
-    steps:
-    - name: Download build artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: build-artifact-${{ github.run_number }}
-        path: ./artifacts
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-    
-    - name: Upload to S3
-      run: |
-        # Get AWS Account ID
-        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-        S3_BUCKET="${PROJECT_NAME}-codebuild-bucket-${ACCOUNT_ID}"
-        
-        echo "Uploading to S3 bucket: ${S3_BUCKET}"
-        
-        # Upload to S3 with GitHub Actions specific prefix
-        aws s3 cp "./artifacts/${{ needs.build.outputs.artifact-name }}" \
-          "s3://${S3_BUCKET}/github-builds/${{ needs.build.outputs.artifact-name }}"
-        
-        echo "✅ Upload completed: s3://${S3_BUCKET}/github-builds/${{ needs.build.outputs.artifact-name }}"
-        
-        # Verify upload
-        aws s3 ls "s3://${S3_BUCKET}/github-builds/" --human-readable
-
-  deploy:
-    name: Deploy to AWS
-    needs: [build, upload-to-s3]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    environment: production
+      build-id: ${{ steps.start-build.outputs.build-id }}
     
     steps:
     - name: Configure AWS credentials
@@ -138,48 +26,165 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
     
-    - name: Deploy to CodeDeploy
-      id: deploy
+    - name: Start CodeBuild
+      id: start-build
       run: |
-        # Get AWS Account ID
+        echo "Starting AWS CodeBuild project: ${{ env.PROJECT_NAME }}-build"
+        
+        # CodeBuildプロジェクトを開始
+        BUILD_ID=$(aws codebuild start-build \
+          --project-name "${{ env.PROJECT_NAME }}-build" \
+          --query 'build.id' \
+          --output text)
+        
+        echo "build-id=${BUILD_ID}" >> $GITHUB_OUTPUT
+        echo "✅ CodeBuild started with ID: ${BUILD_ID}"
+
+  wait-for-build:
+    name: Wait for CodeBuild Completion
+    needs: trigger-codebuild
+    runs-on: ubuntu-latest
+    outputs:
+      build-status: ${{ steps.wait-build.outputs.build-status }}
+      latest-artifact: ${{ steps.wait-build.outputs.latest-artifact }}
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Wait for build completion
+      id: wait-build
+      run: |
+        BUILD_ID="${{ needs.trigger-codebuild.outputs.build-id }}"
+        echo "Waiting for build completion: ${BUILD_ID}"
+        
+        # ビルドの完了を待機（最大30分）
+        TIMEOUT=1800  # 30分
+        ELAPSED=0
+        INTERVAL=30   # 30秒間隔でチェック
+        
+        while [ $ELAPSED -lt $TIMEOUT ]; do
+          BUILD_STATUS=$(aws codebuild batch-get-builds \
+            --ids "${BUILD_ID}" \
+            --query 'builds[0].buildStatus' \
+            --output text)
+          
+          echo "Build status: ${BUILD_STATUS} (${ELAPSED}s elapsed)"
+          
+          case "${BUILD_STATUS}" in
+            "SUCCEEDED")
+              echo "✅ Build completed successfully!"
+              echo "build-status=SUCCEEDED" >> $GITHUB_OUTPUT
+              
+              # 最新のアーティファクトを取得
+              ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+              S3_BUCKET="${PROJECT_NAME}-codebuild-bucket-${ACCOUNT_ID}"
+              
+              LATEST_ARTIFACT=$(aws s3api list-objects-v2 \
+                --bucket "${S3_BUCKET}" \
+                --query 'sort_by(Contents, &LastModified)[-1].Key' \
+                --output text)
+              
+              echo "latest-artifact=${LATEST_ARTIFACT}" >> $GITHUB_OUTPUT
+              echo "Latest artifact: ${LATEST_ARTIFACT}"
+              exit 0
+              ;;
+            "FAILED"|"FAULT"|"STOPPED"|"TIMED_OUT")
+              echo "❌ Build failed with status: ${BUILD_STATUS}"
+              echo "build-status=${BUILD_STATUS}" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+            "IN_PROGRESS")
+              echo "⏳ Build in progress..."
+              ;;
+            *)
+              echo "⚠️ Unknown build status: ${BUILD_STATUS}"
+              ;;
+          esac
+          
+          sleep $INTERVAL
+          ELAPSED=$((ELAPSED + INTERVAL))
+        done
+        
+        echo "❌ Build timed out after ${TIMEOUT} seconds"
+        echo "build-status=TIMEOUT" >> $GITHUB_OUTPUT
+        exit 1
+
+  trigger-deploy:
+    name: Trigger AWS CodeDeploy
+    needs: [trigger-codebuild, wait-for-build]
+    runs-on: ubuntu-latest
+    if: needs.wait-for-build.outputs.build-status == 'SUCCEEDED' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    outputs:
+      deployment-id: ${{ steps.start-deploy.outputs.deployment-id }}
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Start CodeDeploy
+      id: start-deploy
+      run: |
         ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
         S3_BUCKET="${PROJECT_NAME}-codebuild-bucket-${ACCOUNT_ID}"
+        LATEST_ARTIFACT="${{ needs.wait-for-build.outputs.latest-artifact }}"
         
-        echo "Starting CodeDeploy deployment..."
-        echo "Application: ${PROJECT_NAME}-app"
-        echo "Deployment Group: ${PROJECT_NAME}-deployment-group"
-        echo "S3 Location: s3://${S3_BUCKET}/github-builds/${{ needs.build.outputs.artifact-name }}"
+        echo "Starting AWS CodeDeploy..."
+        echo "Application: ${{ env.PROJECT_NAME }}-app"
+        echo "Deployment Group: ${{ env.PROJECT_NAME }}-deployment-group"
+        echo "Artifact: s3://${S3_BUCKET}/${LATEST_ARTIFACT}"
         
-        # Create deployment
+        # CodeDeployでデプロイを開始
         DEPLOYMENT_ID=$(aws deploy create-deployment \
-          --application-name "${PROJECT_NAME}-app" \
-          --deployment-group-name "${PROJECT_NAME}-deployment-group" \
-          --s3-location bucket="${S3_BUCKET}",key="github-builds/${{ needs.build.outputs.artifact-name }}",bundleType=zip \
-          --description "GitHub Actions deployment #${{ github.run_number }} from commit ${{ github.sha }}" \
-          --query 'deploymentId' --output text)
+          --application-name "${{ env.PROJECT_NAME }}-app" \
+          --deployment-group-name "${{ env.PROJECT_NAME }}-deployment-group" \
+          --s3-location bucket="${S3_BUCKET}",key="${LATEST_ARTIFACT}",bundleType=zip \
+          --description "GitHub Actions triggered deployment from commit ${{ github.sha }}" \
+          --query 'deploymentId' \
+          --output text)
         
-        echo "Deployment started with ID: ${DEPLOYMENT_ID}"
         echo "deployment-id=${DEPLOYMENT_ID}" >> $GITHUB_OUTPUT
+        echo "✅ CodeDeploy started with ID: ${DEPLOYMENT_ID}"
+
+  wait-for-deploy:
+    name: Wait for CodeDeploy Completion
+    needs: [trigger-deploy]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Wait for deployment completion
+      run: |
+        DEPLOYMENT_ID="${{ needs.trigger-deploy.outputs.deployment-id }}"
+        echo "Waiting for deployment completion: ${DEPLOYMENT_ID}"
         
-        # Wait for deployment to complete
-        echo "Waiting for deployment to complete..."
+        # デプロイメントの完了を待機
         aws deploy wait deployment-successful --deployment-id "${DEPLOYMENT_ID}"
         
         echo "✅ Deployment completed successfully!"
-    
-    - name: Get deployment status
-      run: |
-        # Get deployment details
-        aws deploy get-deployment --deployment-id "${{ steps.deploy.outputs.deployment-id }}" \
-          --query 'deploymentInfo.[status,description,completeTime]' --output table
         
-        echo "🎉 GitHub Actions CI/CD pipeline completed!"
+        # デプロイメント詳細を表示
+        aws deploy get-deployment --deployment-id "${DEPLOYMENT_ID}" \
+          --query 'deploymentInfo.[status,description,completeTime]' --output table
 
   verify-deployment:
     name: Verify Deployment
-    needs: [deploy]
+    needs: [wait-for-deploy]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     
     steps:
     - name: Configure AWS credentials
@@ -189,38 +194,34 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
     
-    - name: Get EC2 instance info
-      id: ec2-info
+    - name: Get EC2 instance info and health check
       run: |
-        # Get EC2 instance public IP
+        # EC2インスタンスのパブリックIPを取得
         PUBLIC_IP=$(aws ec2 describe-instances \
           --filters "Name=tag:Environment,Values=Development" "Name=instance-state-name,Values=running" \
           --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
         
-        echo "ec2-ip=${PUBLIC_IP}" >> $GITHUB_OUTPUT
         echo "EC2 Instance Public IP: ${PUBLIC_IP}"
-    
-    - name: Health check
-      run: |
-        EC2_IP="${{ steps.ec2-info.outputs.ec2-ip }}"
         
-        if [ "${EC2_IP}" != "None" ] && [ -n "${EC2_IP}" ]; then
-          echo "Performing health check on http://${EC2_IP}:3000/health"
+        if [ "${PUBLIC_IP}" != "None" ] && [ -n "${PUBLIC_IP}" ]; then
+          echo "Performing health check on http://${PUBLIC_IP}:3000/health"
           
-          # Wait a bit for application to fully start
-          sleep 10
+          # アプリケーションの起動を待機
+          sleep 15
           
-          # Health check with retry
+          # ヘルスチェック（リトライ付き）
           for i in {1..5}; do
             echo "Health check attempt ${i}/5..."
-            if curl -f -s "http://${EC2_IP}:3000/health" > /dev/null; then
+            if curl -f -s "http://${PUBLIC_IP}:3000/health" > /dev/null; then
               echo "✅ Health check passed!"
               
-              # Get detailed health info
+              # 詳細な健康状態を表示
               echo "Application health status:"
-              curl -s "http://${EC2_IP}:3000/health" | jq '.'
+              curl -s "http://${PUBLIC_IP}:3000/health" | jq '.' || curl -s "http://${PUBLIC_IP}:3000/health"
               
-              echo "Application URL: http://${EC2_IP}:3000"
+              echo ""
+              echo "🎉 GitHub Actions → CodeBuild → CodeDeploy pipeline completed successfully!"
+              echo "🌐 Application URL: http://${PUBLIC_IP}:3000"
               break
             else
               echo "⚠️ Health check failed, retrying in 10 seconds..."

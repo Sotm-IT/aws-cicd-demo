@@ -1,10 +1,11 @@
-# GitHub Actions CI/CD Setup Guide
+# GitHub Actions → AWS CodeBuild/CodeDeploy Setup Guide
 
-このファイルは、GitHub Actionsを使用したCI/CDパイプラインのセットアップ手順を説明します。
+このファイルは、GitHub ActionsをトリガーとしてAWS CodeBuildとCodeDeployを呼び出すCI/CDパイプラインのセットアップ手順を説明します。
 
 ## 前提条件
 
 1. **AWSリソースが既に作成済み**であること
+   - CodeBuild Project: `aws-cicd-demo-build`
    - CodeDeploy Application: `aws-cicd-demo-app`
    - Deployment Group: `aws-cicd-demo-deployment-group`
    - S3 Bucket: `aws-cicd-demo-codebuild-bucket-{ACCOUNT_ID}`
@@ -18,10 +19,20 @@
 
 GitHubリポジトリの Settings > Secrets and variables > Actions で以下のSecretsを追加：
 
+**手順:**
+1. GitHubリポジトリページで `Settings` タブをクリック
+2. 左側メニューから `Secrets and variables` > `Actions` を選択
+3. `New repository secret` をクリックして以下を追加：
+
 ```
-AWS_ACCESS_KEY_ID: Your AWS Access Key ID
-AWS_SECRET_ACCESS_KEY: Your AWS Secret Access Key
+Name: AWS_ACCESS_KEY_ID
+Secret: [IAMユーザーのアクセスキーID]
+
+Name: AWS_SECRET_ACCESS_KEY  
+Secret: [IAMユーザーのシークレットアクセスキー]
 ```
+
+**⚠️ 重要:** これらの値は、前述のIAM権限を持つAWSユーザーのアクセスキーです。
 
 ### 2. AWS IAMユーザーの権限設定
 
@@ -42,6 +53,15 @@ GitHub Actions用のIAMユーザーに以下の権限が必要：
                 "arn:aws:s3:::aws-cicd-demo-codebuild-bucket-*",
                 "arn:aws:s3:::aws-cicd-demo-codebuild-bucket-*/*"
             ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "codebuild:StartBuild",
+                "codebuild:BatchGetBuilds",
+                "codebuild:ListBuildsForProject"
+            ],
+            "Resource": "arn:aws:codebuild:*:*:project/aws-cicd-demo-build"
         },
         {
             "Effect": "Allow",
@@ -71,38 +91,6 @@ GitHub Actions用のIAMユーザーに以下の権限が必要：
     ]
 }
 ```
-
-### 3. ワークフローの実行
-
-#### 自動実行
-- `main`ブランチまたは`develop`ブランチにプッシュ
-- `main`ブランチへのプルリクエスト作成
-
-#### 手動実行
-1. GitHubリポジトリの「Actions」タブに移動
-2. 「AWS CI/CD with GitHub Actions」ワークフローを選択
-3. 「Run workflow」ボタンをクリック
-
-## ワークフロー構成
-
-### Job 1: Build Application
-- Node.js環境のセットアップ
-- 依存関係のインストール
-- テストの実行
-- デプロイ用アーティファクトの作成
-
-### Job 2: Upload to S3
-- ビルドアーティファクトのS3アップロード
-- GitHub Actions専用プレフィックス (`github-builds/`) を使用
-
-### Job 3: Deploy to AWS
-- AWS CodeDeployを使用したデプロイメント
-- Production環境の保護設定
-
-### Job 4: Verify Deployment
-- EC2インスタンスの情報取得
-- アプリケーションのヘルスチェック
-- デプロイメント検証
 
 ## トラブルシューティング
 
