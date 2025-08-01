@@ -2,7 +2,7 @@
 
 このリポジトリは、AWS上でCI/CDパイプラインのデモを行うためのシンプルなNode.jsアプリケーションです。このREADMEに沿って手順を実行すれば、完全なCI/CDパイプラインを構築できます。
 
-![アーキテクチャ](Architecture.drawio.svg)
+![アーキテクチャ](./images/Architecture.svg)
 
 ## 1. 概要
 
