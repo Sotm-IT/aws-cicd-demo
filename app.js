@@ -33,6 +33,7 @@ app.get('/', (req, res) => {
       <body>
         <h1>Hello from AWS CI/CD Demo!</h1>
         <p>This application is deployed using AWS CI/CD Pipeline</p>
+        <p>I love AWS!</p>
         <p><a href="/health">Check health status</a></p>
         <footer>Deployment time: ${new Date().toISOString()}</footer>
       </body>
