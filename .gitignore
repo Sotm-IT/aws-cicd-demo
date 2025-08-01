@@ -1,3 +1,7 @@
 node_modules/
-node_modules
+
+# 生成されたJSONファイル（テンプレートファイルは保存）
+scripts/setup/aws-resources/codebuild/create-project.json
+scripts/setup/aws-resources/codebuild/create-bucket.json
+scripts/setup/aws-resources/codebuild/service-role-policy.json
 

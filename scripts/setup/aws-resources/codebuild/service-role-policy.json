@@ -15,8 +15,8 @@
     {
       "Effect": "Allow",
       "Resource": [
-        "arn:aws:s3:::aws-cicd-demo-artifacts",
-        "arn:aws:s3:::aws-cicd-demo-artifacts/*"
+        "arn:aws:s3:::<PROJECT_NAME>-codebuild-bucket-<ACCOUNT_ID>",
+        "arn:aws:s3:::<PROJECT_NAME>-codebuild-bucket-<ACCOUNT_ID>/*"
       ],
       "Action": [
         "s3:GetObject",

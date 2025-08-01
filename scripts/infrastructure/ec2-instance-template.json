@@ -107,7 +107,7 @@
                 "\n",
                 "# Install CodeDeploy agent\n",
                 "cd /home/ubuntu\n",
-                "wget https://aws-codedeploy-ap-northeast-1.s3.amazonaws.com/latest/install\n",
+                "wget https://aws-codedeploy-<AWS_REGION>.s3.amazonaws.com/latest/install\n",
                 "chmod +x ./install\n",
                 "./install auto\n",
                 "rm -f ./install\n",

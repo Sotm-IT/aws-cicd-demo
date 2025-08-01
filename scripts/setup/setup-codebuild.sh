@@ -19,8 +19,38 @@ echo -e "\e[33mBucket name: $S3_BUCKET_NAME\e[0m"
 AWS_RESOURCES_PATH="$SETUP_DIR/aws-resources"
 PROJECT_JSON_PATH="$AWS_RESOURCES_PATH/codebuild/create-project.json"
 
-# JSONファイルの<ACCOUNT_ID>を置き換える
+# バックアップファイルが存在しない場合は作成
+PROJECT_JSON_TEMPLATE="$PROJECT_JSON_PATH.template"
+if [[ ! -f "$PROJECT_JSON_TEMPLATE" ]]; then
+    cp "$PROJECT_JSON_PATH" "$PROJECT_JSON_TEMPLATE"
+fi
+
+# テンプレートからJSONファイルを再生成（毎回クリーンな状態から開始）
+cp "$PROJECT_JSON_TEMPLATE" "$PROJECT_JSON_PATH"
+
+# JSONファイルのプレースホルダーを置き換える
 sed -i "s/<ACCOUNT_ID>/$ACCOUNT_ID/g" "$PROJECT_JSON_PATH"
+sed -i "s/<PROJECT_NAME>/$PROJECT_NAME/g" "$PROJECT_JSON_PATH"
+sed -i "s/<AWS_REGION>/$AWS_REGION/g" "$PROJECT_JSON_PATH"
+
+# S3バケット設定ファイルのプレースホルダーを置き換える
+BUCKET_JSON_PATH="$AWS_RESOURCES_PATH/codebuild/create-bucket.json"
+BUCKET_JSON_TEMPLATE="$BUCKET_JSON_PATH.template"
+if [[ ! -f "$BUCKET_JSON_TEMPLATE" ]]; then
+    cp "$BUCKET_JSON_PATH" "$BUCKET_JSON_TEMPLATE"
+fi
+cp "$BUCKET_JSON_TEMPLATE" "$BUCKET_JSON_PATH"
+sed -i "s/<AWS_REGION>/$AWS_REGION/g" "$BUCKET_JSON_PATH"
+
+# サービスロールポリシーファイルのプレースホルダーを置き換える
+POLICY_JSON_PATH="$AWS_RESOURCES_PATH/codebuild/service-role-policy.json"
+POLICY_JSON_TEMPLATE="$POLICY_JSON_PATH.template"
+if [[ ! -f "$POLICY_JSON_TEMPLATE" ]]; then
+    cp "$POLICY_JSON_PATH" "$POLICY_JSON_TEMPLATE"
+fi
+cp "$POLICY_JSON_TEMPLATE" "$POLICY_JSON_PATH"
+sed -i "s/<ACCOUNT_ID>/$ACCOUNT_ID/g" "$POLICY_JSON_PATH"
+sed -i "s/<PROJECT_NAME>/$PROJECT_NAME/g" "$POLICY_JSON_PATH"
 
 SERVICE_ROLE_NAME="codebuild-$PROJECT_NAME-service-role"
 
@@ -39,14 +69,14 @@ fi
 echo -e "\e[33mCreating IAM role...\e[0m"
 
 # ロールの存在確認
-if aws iam get-role --role-name "$SERVICE_ROLE_NAME" 2>/dev/null; then
+if aws iam get-role --role-name "$SERVICE_ROLE_NAME" >/dev/null 2>&1; then
     echo -e "\e[32mRole $SERVICE_ROLE_NAME already exists\e[0m"
 else
     # ロール作成
     aws iam create-role \
         --role-name "$SERVICE_ROLE_NAME" \
         --assume-role-policy-document file://"$AWS_RESOURCES_PATH/codebuild/service-role-trust-policy.json"
-
+    
     # ポリシーのアタッチ
     aws iam put-role-policy \
         --role-name "$SERVICE_ROLE_NAME" \

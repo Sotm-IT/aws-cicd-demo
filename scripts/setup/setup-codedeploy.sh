@@ -17,11 +17,11 @@ export SERVICE_ROLE_NAME="codedeploy-$PROJECT_NAME-service-role"
 echo -e "\e[33mCreating IAM role...\e[0m"
 
 # ロールの存在確認
-if aws iam get-role --role-name "$SERVICE_ROLE_NAME" 2>/dev/null; then
+if aws iam get-role --role-name "$SERVICE_ROLE_NAME" >/dev/null 2>&1; then
     echo -e "\e[32mRole $SERVICE_ROLE_NAME already exists\e[0m"
 else
     # ロール作成
-    AWS_RESOURCES_PATH="$SCRIPT_DIR/aws-resources"
+    AWS_RESOURCES_PATH="$SETUP_DIR/aws-resources"
     aws iam create-role \
         --role-name "$SERVICE_ROLE_NAME" \
         --assume-role-policy-document file://"$AWS_RESOURCES_PATH/codedeploy/service-role-trust-policy.json"
