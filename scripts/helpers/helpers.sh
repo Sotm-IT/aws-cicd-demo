@@ -36,108 +36,192 @@ get_env_config_path() {
     echo "$(dirname "$HELPERS_DIR")/env-config.sh"
 }
 
-# ビルドを実行して結果を待機する
-start_build() {
-    import_environment_variables
-
-    echo "Starting build..."
-    local build_result
-    build_result=$(aws codebuild start-build --project-name $PROJECT_NAME)
+# 最新のビルド情報を更新する関数
+update_build_info() {
+    local env_config_path="$(get_env_config_path)"
     
-    # jqコマンドが利用可能かチェック
-    local build_id
-    if command -v jq > /dev/null; then
-        build_id=$(echo "$build_result" | jq -r '.build.id')
-    else
-        # jqがない場合、簡易的な方法で取得を試みる
-        build_id=$(echo "$build_result" | grep -oP '"id":\s*"\K[^"]+' | head -1)
+    # S3バケット名の確認
+    if [ -z "$S3_BUCKET_NAME" ]; then
+        echo "S3_BUCKET_NAME environment variable is not set"
+        return 1
     fi
     
-    echo "Build ID: $build_id"
-    echo "Checking build status..."
+    # S3バケット内の最新のビルドアーティファクトを取得
+    local latest_artifact
+    latest_artifact=$(aws s3api list-objects-v2 \
+        --bucket "$S3_BUCKET_NAME" \
+        --query 'sort_by(Contents, &LastModified)[-1].Key' \
+        --output text 2>/dev/null)
     
-    local status
-    local build_status="IN_PROGRESS"
-    local phase
+    local list_exit_code=$?
     
-    while [ "$build_status" == "IN_PROGRESS" ]; do
-        sleep 10
-        status=$(aws codebuild batch-get-builds --ids "$build_id")
-        
-        if command -v jq > /dev/null; then
-            build_status=$(echo "$status" | jq -r '.builds[0].buildStatus')
-            phase=$(echo "$status" | jq -r '.builds[0].currentPhase')
+    # S3操作のエラーハンドリング
+    if [ $list_exit_code -ne 0 ]; then
+        echo "Error accessing S3 bucket: $S3_BUCKET_NAME"
+        echo "Please check S3 permissions and bucket existence"
+        return 1
+    fi
+    
+    if [ "$latest_artifact" != "None" ] && [ -n "$latest_artifact" ]; then
+        # 環境変数ファイルにLATEST_BUILD_ARTIFACTを追加または更新
+        if grep -q "^export LATEST_BUILD_ARTIFACT=" "$env_config_path" 2>/dev/null; then
+            sed -i "s|^export LATEST_BUILD_ARTIFACT=.*|export LATEST_BUILD_ARTIFACT=\"$latest_artifact\"|" "$env_config_path"
         else
-            build_status=$(echo "$status" | grep -oP '"buildStatus":\s*"\K[^"]+' | head -1)
-            phase=$(echo "$status" | grep -oP '"currentPhase":\s*"\K[^"]+' | head -1)
+            echo "export LATEST_BUILD_ARTIFACT=\"$latest_artifact\"" >> "$env_config_path"
         fi
         
-        echo "Current phase: $phase - Status: $build_status"
-    done
-    
-    if [ "$build_status" == "SUCCEEDED" ]; then
-        echo "Build succeeded!"
-        # 最新のビルド情報を更新
-        update_build_info
-        return 0
+        export LATEST_BUILD_ARTIFACT="$latest_artifact"
+        echo "Latest build artifact updated: $LATEST_BUILD_ARTIFACT"
     else
-        echo "Build failed. Status: $build_status"
+        echo "No build artifacts found in S3 bucket: $S3_BUCKET_NAME"
         return 1
     fi
 }
 
+# ビルドを実行して結果を待機する
+start_build() {
+    echo "Starting CodeBuild..."
+    
+    # 環境変数の確認
+    if [ -z "$PROJECT_NAME" ]; then
+        echo "PROJECT_NAME environment variable is not set"
+        return 1
+    fi
+    
+    # setup-codebuild.shで作成したプロジェクト名を使用
+    local codebuild_project_name="${PROJECT_NAME}-build"
+    
+    # プロジェクトの存在確認
+    if ! aws codebuild batch-get-projects --names "$codebuild_project_name" >/dev/null 2>&1; then
+        echo "CodeBuild project does not exist: $codebuild_project_name"
+        echo "Please run setup-codebuild.sh first"
+        return 1
+    fi
+    
+    local build_id
+    build_id=$(aws codebuild start-build \
+        --project-name "$codebuild_project_name" \
+        --query 'build.id' \
+        --output text)
+    
+    if [ $? -ne 0 ] || [ -z "$build_id" ]; then
+        echo "Failed to start build for project: $codebuild_project_name"
+        echo "Please check CodeBuild permissions and project configuration"
+        return 1
+    fi
+    
+    echo "Build started with ID: $build_id"
+    echo "Waiting for build to complete..."
+    
+    # ビルドの完了を待機（polling方式）
+    local retry_count=0
+    local max_retries=60  # 最大10分間待機
+    
+    while [ $retry_count -lt $max_retries ]; do
+        local build_status
+        build_status=$(aws codebuild batch-get-builds \
+            --ids "$build_id" \
+            --query 'builds[0].buildStatus' \
+            --output text 2>/dev/null)
+        
+        case "$build_status" in
+            "SUCCEEDED")
+                echo ""
+                echo "Build completed successfully"
+                update_build_info
+                return 0
+                ;;
+            "FAILED"|"FAULT"|"STOPPED"|"TIMED_OUT")
+                echo ""
+                echo "Build failed with status: $build_status"
+                echo "Check CloudWatch logs for details: /aws/codebuild/$codebuild_project_name"
+                return 1
+                ;;
+            "IN_PROGRESS")
+                echo -n "."
+                sleep 10
+                retry_count=$((retry_count + 1))
+                ;;
+            *)
+                echo -n "?"
+                sleep 10
+                retry_count=$((retry_count + 1))
+                ;;
+        esac
+    done
+    
+    echo ""
+    echo "Build timed out after $((max_retries * 10)) seconds"
+    return 1
+}
+
 # デプロイを実行して結果を待機する
 start_deployment() {
-    import_environment_variables
+    echo "Starting CodeDeploy deployment..."
     
-    # 最新のビルド情報が設定されているか確認
+    # 環境変数の確認
+    if [ -z "$PROJECT_NAME" ]; then
+        echo "PROJECT_NAME environment variable is not set"
+        return 1
+    fi
+    
+    if [ -z "$S3_BUCKET_NAME" ]; then
+        echo "S3_BUCKET_NAME environment variable is not set"
+        return 1
+    fi
+    
+    # setup-codedeploy.shで作成したアプリケーション名とデプロイメントグループ名を使用
+    local application_name="${PROJECT_NAME}-app"
+    local deployment_group_name="${PROJECT_NAME}-deployment-group"
+    
+    # CodeDeployアプリケーションの存在確認
+    if ! aws deploy get-application --application-name "$application_name" >/dev/null 2>&1; then
+        echo "CodeDeploy application does not exist: $application_name"
+        echo "Please run setup-codedeploy.sh first"
+        return 1
+    fi
+    
+    # 最新のビルドアーティファクトを確認
     if [ -z "$LATEST_BUILD_ARTIFACT" ]; then
-        update_build_info
-        if [ -z "$LATEST_BUILD_ARTIFACT" ]; then
-            echo "デプロイするビルドアーティファクトが見つかりません" >&2
+        echo "No build artifact found. Please run build first."
+        echo "Attempting to update build info..."
+        if ! update_build_info; then
             return 1
         fi
     fi
     
-    echo "Starting deployment..."
-    local deploy_result
-    deploy_result=$(aws deploy create-deployment \
-        --application-name "$PROJECT_NAME" \
-        --deployment-group-name "$PROJECT_NAME-group" \
-        --s3-location bucket="$S3_BUCKET_NAME",key="$LATEST_BUILD_ARTIFACT",bundleType=zip)
-    
-    # デプロイメントIDを取得
-    local deployment_id
-    if command -v jq > /dev/null; then
-        deployment_id=$(echo "$deploy_result" | jq -r '.deploymentId')
-    else
-        deployment_id=$(echo "$deploy_result" | grep -oP '"deploymentId":\s*"\K[^"]+')
+    # S3にアーティファクトが存在するか確認
+    if ! aws s3api head-object --bucket "$S3_BUCKET_NAME" --key "$LATEST_BUILD_ARTIFACT" >/dev/null 2>&1; then
+        echo "Build artifact not found in S3: s3://$S3_BUCKET_NAME/$LATEST_BUILD_ARTIFACT"
+        return 1
     fi
     
-    echo "Deployment ID: $deployment_id"
-    echo "Checking deployment status..."
+    local deployment_id
+    deployment_id=$(aws deploy create-deployment \
+        --application-name "$application_name" \
+        --deployment-group-name "$deployment_group_name" \
+        --s3-location bucket="$S3_BUCKET_NAME",key="$LATEST_BUILD_ARTIFACT",bundleType=zip \
+        --query 'deploymentId' \
+        --output text)
     
-    local status
-    local deploy_status="InProgress"
+    if [ $? -ne 0 ] || [ -z "$deployment_id" ]; then
+        echo "Failed to start deployment for application: $application_name"
+        echo "Please check CodeDeploy permissions and configuration"
+        return 1
+    fi
     
-    while [[ "$deploy_status" == "InProgress" || "$deploy_status" == "Created" || "$deploy_status" == "Queued" ]]; do
-        sleep 10
-        status=$(aws deploy get-deployment --deployment-id "$deployment_id")
-        
-        if command -v jq > /dev/null; then
-            deploy_status=$(echo "$status" | jq -r '.deploymentInfo.status')
-        else
-            deploy_status=$(echo "$status" | grep -oP '"status":\s*"\K[^"]+' | head -1)
-        fi
-        
-        echo "Deployment status: $deploy_status"
-    done
+    echo "Deployment started with ID: $deployment_id"
+    echo "Waiting for deployment to complete..."
     
-    if [ "$deploy_status" == "Succeeded" ]; then
-        echo "Deployment succeeded!"
+    # デプロイメントの完了を待機
+    aws deploy wait deployment-successful --deployment-id "$deployment_id"
+    
+    if [ $? -eq 0 ]; then
+        echo "Deployment completed successfully"
         return 0
     else
-        echo "Deployment failed. Status: $deploy_status"
+        echo "Deployment failed or timed out"
+        echo "Check AWS Console for deployment details: $deployment_id"
         return 1
     fi
 }
