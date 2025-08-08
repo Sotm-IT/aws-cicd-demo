@@ -50,7 +50,7 @@ app.get('/health', (req, res) => {
     memoryUsage: process.memoryUsage(),
     environment: process.env.NODE_ENV || 'development'
   };
-  
+
   res.status(200).json(healthData);
 });
 
