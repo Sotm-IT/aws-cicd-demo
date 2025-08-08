@@ -16,3 +16,6 @@ dist/
 .env
 .env.local
 
+# Unused placeholder script; keep ignored
+scripts/aws-mock.sh
+
